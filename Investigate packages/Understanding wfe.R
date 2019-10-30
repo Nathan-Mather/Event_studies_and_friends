@@ -60,9 +60,13 @@
   length(GATT[, unique(dyad)])
 
   
-#================================================================#
-# ==== I. Both formal (participant) vs. (either one or none) ====
-#================================================================#
+#==================================#
+# ==== Run examples from paper ====
+#==================================#
+# this section replicates some results from  https://imai.fas.harvard.edu/research/files/FEmatch.pdf  and 
+# provides a nice example of the functionality of WFE 
+
+  
 
   # rename data. No clear reason to do this, they just do in their code 
   Data <- GATT

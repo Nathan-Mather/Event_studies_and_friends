@@ -104,18 +104,4 @@
   summary(covsyn)
   plot(covsyn)
   
-#==========================#
-# ==== list of options ====
-#==========================#
 
-# # various types of progfunc 
-# Ridge=Ridge regression (allows for standard errors), 
-  # None=No outcome model, 
-  # EN=Elastic Net, 
-  # RF=Random Forest,
-  # GSYN=gSynth,
-  # MCP=MCPanel,
-  # CITS=CITS
-  # CausalImpact=Bayesian structural time series with CausalImpact
-  # seq2seq=Sequence to sequence learning with feedforward nets
-  
