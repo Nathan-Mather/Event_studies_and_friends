@@ -104,18 +104,59 @@ all.equal(as.numeric(test1[, 3]), dt_exp$lag_2)
 # ==== More advanced PLM ====
 #============================#
 
-    
+  # Two way effects 
+  grun.tways <- plm(inv~value+capital, data = Grunfeld, effect = "twoways",
+                    model = "random", random.method = "amemiya")
+  summary(grun.tways)
   
-#=================================#
-# ==== exploring more options ====
-#=================================#
+  # intrumental variables estimators 
+  # just ad the | sign and the variables you want
+  # should work with all above methods 
+  
+  # load data for example 
+  data("Crime", package = "plm")
+  
+  # convert data to data.table 
+  Crime <- data.table(Crime)
+  
+  # the data doesn't actually have the variables we need, so make them 
+  # Below is copy pasted variables we need from vignette 
+  to_log <-  "lcrmrte + lprbarr + lpolpc + lprbconv + lprbpris + lavgsen + ldensity + lwcon + lwtuc + lwtrd + lwfir + lwser + lwmfg + lwfed + lwsta + lwloc + lpctymle + lpctmin + ltaxpc + lmix"
+  # split these out by the plus sign 
+  to_log <-  strsplit(to_log, " + ", fixed = TRUE)[[1]]
+  # sub out the leading l to get the unlogged variables that are in the data 
+  to_log <- gsub("^l", "", to_log)
+
+  # log all the variables and create lvar column of logged var 
+  Crime[, paste0("l", to_log)] <- lapply(Crime[,to_log, with = FALSE],  log)
+  
+  # run model 
+  cr <- plm(lcrmrte ~ lprbarr + lpolpc + lprbconv + lprbpris + lavgsen +
+              ldensity + lwcon + lwtuc + lwtrd + lwfir + lwser + lwmfg + lwfed +
+              lwsta + lwloc + lpctymle + lpctmin + region + smsa + factor(year)
+            | . - lprbarr - lpolpc + ltaxpc + lmix,
+            data = Crime, model = "random")
+  
+  # match results from vignette 
+  summary(cr)
+
+#================================#
+# ==== variable coefficients ====
+#================================#
+  
+#========================#
+# ==== GMM estimator ====
+#========================#
+
+#==============================#
+# ==== General FGLS models ====
+#==============================#
+
+#=============================#
+# ==== other tests in PLM ====
+#=============================#
 
 
-# havnt done this yet but as we start developing the wrapper this may become more relevent. 
 
-
-#==========================#
-# ==== other functions ====
-#==========================#
 
 
