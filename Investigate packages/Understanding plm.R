@@ -139,7 +139,9 @@ all.equal(as.numeric(test1[, 3]), dt_exp$lag_2)
   
   # match results from vignette 
   summary(cr)
-
+  
+  
+# bunch of other stuff in this package but unsure if it is relevent 
 #================================#
 # ==== variable coefficients ====
 #================================#
