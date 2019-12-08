@@ -141,53 +141,61 @@
    # subset to under 60 
    hrs <- hrs[age_hosp <= 59]
    
-   
-
-   
-
-   
-   
 #=====================#
 # ==== Estimation ====
 #=====================#
+   
+   
+   #==============================================#
+   # ==== estimate two way FE as a comparison ====
+   #==============================================#
 
-   # get all the dummy variables we need 
-   dum_vars <- grep("evt_time_|wave_[[:digit:]]", colnames(hrs), value = TRUE)
-   
-   # leave one of each out 
-   dum_vars <- setdiff(dum_vars, c("wave_7", "evt_time_1", "evt_time_4"))
-   
-   # make formula 
-   form <- as.formula(paste0("oop_spend ~ ",
-                             paste0(dum_vars, collapse = " + " ),
-                             "| hhidpn |0| hhidpn"))
-   # run the regression 
-   # the results dont match reghdfe. Something to do with degrees of freedom calculcations or soemthing. Don't really follow it but 
-   # here is a github thread about it https://github.com/sgaure/lfe/issues/1
-   # There is a Pull Request to add a method to equate the standard errors here https://github.com/sgaure/lfe/pull/26
-   # the commented out code would work after that request or if I can get that code puled from github to work 
-   # for now the standard errors will just be off 
-   
-   # reg_res <- felm(form,
-   #                 data = hrs[ever_hospitalized == 1],
-   #                 cmethod = "reghdfe")
-   
-   # we have controls for the wave that ypu are in. This is your T and is a control not the outcome of interest 
-   # Then we have The event time. This is the wave relative to the hospitalizaiton 
-   reg_res <- felm(form,
-                   data = hrs[ever_hospitalized == 1])
-   
-   # check attributes 
-   attributes(reg_res)
-   
-   # put results in a data.table 
-   #check data with stata. Std errors are wrong like I said earlier 
-   data.table(term       = rownames(reg_res$coefficients),
-               estimate   = reg_res$coefficients,
-               robust_ste = reg_res$cse,
-               t          = reg_res$ctval,
-               p_val      = reg_res$cpval)
+  
+     # get all the dummy variables we need 
+     dum_vars <- grep("evt_time_|wave_[[:digit:]]", colnames(hrs), value = TRUE)
+     
+     # leave one of each out 
+     dum_vars <- setdiff(dum_vars, c("wave_7", "evt_time_1", "evt_time_4"))
+     
+     # make formula 
+     form <- as.formula(paste0("oop_spend ~ ",
+                               paste0(dum_vars, collapse = " + " ),
+                               "| hhidpn |0| hhidpn"))
+     # run the regression 
+     # the results dont match reghdfe. Something to do with degrees of freedom calculcations or soemthing. Don't really follow it but 
+     # here is a github thread about it https://github.com/sgaure/lfe/issues/1
+     # There is a Pull Request to add a method to equate the standard errors here https://github.com/sgaure/lfe/pull/26
+     # the commented out code would work after that request or if I can get that code puled from github to work 
+     # for now the standard errors will just be off 
+     # this should work avter the pull request 
+     # reg_res <- felm(form,
+     #                 data = hrs[ever_hospitalized == 1],
+     #                 cmethod = "reghdfe")
+     
+     # we have controls for the wave that ypu are in. This is your T and is a control not the outcome of interest 
+     # Then we have The event time. This is the wave relative to the hospitalizaiton 
+     reg_res <- felm(form,
+                     data = hrs[ever_hospitalized == 1])
+     
+     b2way_hrs
+     
+     # check attributes 
+     attributes(reg_res)
+     
+     # put results in a data.table 
+     #check data with stata. Std errors are wrong like I said earlier 
+     # BUT the purpose of this is just as a camparison. It's not part of their estimation technique 
+     reg_res_dt <- data.table(term        = rownames(reg_res$coefficients),
+                               estimate   = as.numeric(reg_res$coefficients),
+                               robust_ste = reg_res$cse,
+                               t          = reg_res$ctval,
+                               p_val      = reg_res$cpval)
                
+     b2way_hrs <- reg_res_dt[term %like% "evt_time", c("term", "estimate", "robust_ste")]
+  #=======================================#
+  # ==== set up data for their method ====
+  #=======================================#
+
    # Firt, set evt_time dummy to zero for any wave_hosp == 11 
    # that is for anyone with a first hospitalization after 10, make them untreated as they are a control group 
    evt_tim_vars <- grep("evt_time_", colnames(hrs), value = TRUE)
@@ -205,28 +213,28 @@
    }
    
    
-#================================#
-# ==== compare data to stata ====
-#================================#
+  #================================#
+  # ==== compare data to stata ====
+  #================================#
 
- 
-   #check out data 
-   # this is where I got a sense pf what all the variables mean. 
-   test <- hrs_temp[, c( "hhidpn", "wave", "wave_hosp", "evt_time" )]
-   test[, hhidpn := as.character(hhidpn)]
    
-   tab <- setorder(hrs_temp[wave < 11, .N, evt_time], evt_time)
-   tab 
-   
-   hrs_temp[wave < 11, .N, evt_time_3]
-   hrs_temp[wave < 11, .N, evt_time_4]
-   hrs_temp[wave < 11, .N, evt_time_5]
-   hrs_temp[wave < 11, .N, evt_time_6]
-   hrs_temp[wave < 11, .N, evt_time_7]
-   
-#==============================#
-# ==== Continue estimation ====
-#==============================#
+     #check out data 
+     # this is where I got a sense pf what all the variables mean. 
+     test <- hrs_temp[, c( "hhidpn", "wave", "wave_hosp", "evt_time" )]
+     test[, hhidpn := as.character(hhidpn)]
+     
+     tab <- setorder(hrs_temp[wave < 11, .N, evt_time], evt_time)
+     tab 
+     
+     hrs_temp[wave < 11, .N, evt_time_3]
+     hrs_temp[wave < 11, .N, evt_time_4]
+     hrs_temp[wave < 11, .N, evt_time_5]
+     hrs_temp[wave < 11, .N, evt_time_6]
+     hrs_temp[wave < 11, .N, evt_time_7]
+     
+  #==============================#
+  # ==== Continue estimation ====
+  #==============================#
 
    
    # run regressions of first time hospitalized on event time dummies. 
@@ -248,13 +256,11 @@
    # run system fit 
    #note this is also not matching. Need to figure it out but I can not right now so mocing on 
    names(formula_list) <- c("eq1", "eq2", 'eq3')
-   sur_res <- systemfit(formula_list, method = "SUR", data = hrs_temp[wave<11])
-   Vcov <- vcov(sur_res)
+   sur_res <- systemfit(formula_list, method = "SUR", data = hrs_temp[wave<11])# the estiamtes match but 
+   Vcov <- vcov(sur_res) # vcov matrix does not match. Not sure what is wronge, maybe robust SE 
    
    
-   #===========================#
-   # ==== restore in stata ====
-   #===========================#
+# NOTE THIS IS WHERE THE RESTORE HAPPENS IN STATA
    
   # go back to using regular hrs data 
    rm(hrs_temp)
@@ -262,6 +268,7 @@
   # here they are creating another indicator 
    # it is 1 if anf only if the first number corresponds to the event time relative to the current wave and the second number 
    # corresponds to the actual wave in whiich hospitalization occured 
+   # This is so we can estiamte unique cohort time treatment effects 
   for(vv in evt_tim_vars){
     for(i in 8:11){
       print(paste0(vv, "_", i))
@@ -274,13 +281,13 @@
   # make a list of the relevent variables like they do 
    rhs_rel_year_i <- c("evt_time_5_8", "evt_time_6_8", "evt_time_7_8", "evt_time_3_9", "evt_time_5_9", "evt_time_6_9", "evt_time_2_10", "evt_time_3_10", "evt_time_5_10")
   
-  # try to make sesne of why they are picking only those 
+  # this will show why they picked those specifically 
   print(setorder(hrs[wave < 11, .N, c( "evt_time", "wave_hosp")], wave_hosp, evt_time))
   # so you van see they are picking those because that is all of the wave event time combinations that are present in 
   # waves 8-10 and they are leaving  event time 4 ( event_time == -1) 
   # off for each group as the reference gourp. 
    
-    
+  # make RHS variabes 
   rhs_vars <- paste0("wave_", c(8:10))
   rhs_vars <- c(rhs_rel_year_i, rhs_vars)
    
@@ -292,21 +299,154 @@
   
   hrs[ever_hospitalized == 1 & wave < 11, .N, rhs_vars]
   
-  reg_res2 <- felm(form,
+  # use FELM, agin remember the SE wont match 
+  # this is the "saturated" regression of equation (11). We get cohort time treatment effects 
+  reg_res_11 <- felm(form,
                   data = hrs[ever_hospitalized == 1 & wave < 11])
   
-  # check attributes 
-  attributes(reg_res)
+
   
   # put results in a data.table 
   #check data with stata. Std errors are wrong like I said earlier 
   # estimates seem to match though 
-  reg_tab_2 <- data.table( term       = rownames(reg_res2$coefficients),
-                           estimate   = reg_res2$coefficients,
-                           robust_ste = reg_res2$cse,
-                           t          = reg_res2$ctval,
-                           p_val      = reg_res2$cpval)
-                
-  svycontrast(reg_res2, c("evt_time_2_10" = 1))
+  reg_tab_11 <- data.table( term       = rownames(reg_res_11$coefficients),
+                           estimate   = as.numeric(reg_res_11$coefficients),
+                           robust_ste = reg_res_11$cse,
+                           t          = reg_res_11$ctval,
+                           p_val      = reg_res_11$cpval)
+  
+  # for now just make the same objects as the stat code even if its weird 
+  b <- reg_tab_11$estimate
+  V <- diag(vcov(reg_res_11))
+  b_8 <- c(NA, NA, 0, b[1:3] )
+  V_8 <- c(NA, NA, 0, V[1:3] )
+  b_9 <- c(NA, b[4], 0, b[5:6], NA)
+  V_9 <- c(NA, V[4], 0, V[5:6], NA)
+  b_10 <- c(b[7:8], 0 , b[9], NA, NA)
+  V_10 <- c(V[7:8], 0, V[9], NA, NA)
+  biw_long <- b
+   
+  # first linear combo, estimates for event time 2 (-3 periods)
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_2_10" = 1)))
+  b <- res[,1 ]
+  V <- (res[, 2])^2
 
-  svycontrast(reg_res2, c("evt_time_3_9" = c_9/(c_9 + c_10), "evt_time_3_10" = c_10/(c_9 + c_10)))
+  
+  
+  # second linear combo, esitmate for event time 3 (-2 periods)
+  tempb <- as.matrix(biw_long[ c(4,8)])
+  tempVcov <- as.matrix(Vcov[c(6,11), c(6,11)]  )
+  
+  temp <-  t(tempb)%*%tempVcov %*% tempb
+  
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_3_9" = c_9/(c_9 + c_10), "evt_time_3_10" = c_10/(c_9 + c_10))))
+  b <- c(b, res[,1])
+  V <- c(V, res[,2]^2 + temp)
+  
+  # evt_time_4 is normalized 
+  b <- c(b, 0)
+  V <- c(V, 0)
+  
+  # third linear combo ,estimates for event time 5, (0 periods away)
+  tempb <- as.matrix(biw_long[c(1,5,8)])
+  tempVcov <- as.matrix(Vcov[c(3,8,13), c(3,8,13)]  )
+  temp <-  t(tempb)%*%tempVcov %*% tempb
+  
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_5_8" = c_8/(c_8 + c_9 + c_10), "evt_time_5_9" = c_9/(c_8 + c_9 + c_10), "evt_time_5_10" = c_10/(c_8 + c_9 + c_10))))
+  b <- c(b, res[,1])
+  V <- c(V, res[,2]^2 + temp)
+  
+  # fourth linear combo, event time 6 (1 period away)
+  tempb <- as.matrix(biw_long[c(2,6)])
+  tempVcov <- as.matrix(Vcov[c(4,9), c(4,9)]  )
+  temp <-  t(tempb)%*%tempVcov %*% tempb
+  
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_6_8" = c_8/(c_8 + c_9), "evt_time_6_9" = c_10/(c_8 + c_9))))
+  b <- c(b, res[,1])
+  V <- c(V, res[,2]^2 + temp)
+  
+  # get event time 7 (2 periods away 
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_7_8" = 1)))
+  b <- c(b, res[,1])
+  V <- c(V, res[,2]^2)
+  
+  # get IW estimates 
+  biw_hrs <- cbind(b,V, b_8, V_8, b_9, V_9, b_10, V_10)
+  
+#=====================#
+# ==== Make table ====
+#=====================#
+# start by making this super wierd table to match the stata code. 
+# the variable names and pretty much everything here is very confusing but 
+# I am sticking with it for now to match the stata code. 
+  
+  # start with the table that's in stata 
+  stata_tab <- b2way_hrs[, -"term"]
+  setnames(stata_tab, colnames(stata_tab), c("b2way_hrs1", "sd1"))
+  
+  # add in normalizd to zero evt_time_4 
+  stata_tab <- rbind(stata_tab[1:2], 
+                     data.table(b2way_hrs1 = 0, sd1 =NA),
+                     stata_tab[3:6])
+  stata_tab[, y := c(-3:3)]
+  stata_tab[, b2way_hrs2 :=sd1^2 ]
+  stata_tab[, ci1_u := b2way_hrs1 + 1.96*sqrt(b2way_hrs2) ]
+  stata_tab[, ci1_l := b2way_hrs1 - 1.96*sqrt(b2way_hrs2) ]
+  
+  
+  # IW estimates 
+  biw_hrs2 <- rbind(biw_hrs, rep(NA, 8))
+  stata_tab <- cbind(stata_tab, data.table(biw_hrs2))
+  stata_tab[, ci2_u := b + sqrt(V)*1.96]
+  stata_tab[, ci2_l := b - sqrt(V)*1.96]
+  stata_tab[, sd2 := sqrt(V)]
+  stata_tab[, sd8 := sqrt(V_8)]
+  stata_tab[, sd9 := sqrt(V_9)]
+  stata_tab[, sd10 := sqrt(V_10)]
+  
+  # now put them in this super weird order from the stata table 
+  setcolorder(stata_tab, c("y", "b2way_hrs1", "b", "b_8", "b_9", 
+                           "b_10", "sd1", "sd2", "sd8", "sd9",
+                           "sd10", "b2way_hrs2", "ci1_u", "ci1_l",
+                           "V", "V_8", "V_9", "V_10", "ci2_u", "ci2_l"))
+  
+  #===========================#
+  # ==== Make paper table ====
+  #===========================#
+  # in order to get the estimate over the SE like the paper 
+  # I make to tables, stack them, then sort it 
+    
+    # get estimates 
+    paper_tab_est <- stata_tab[, c("y", "b2way_hrs1",  "b", "b_8",
+                               "b_9","b_10")]
+    paper_tab_est[, statistic := "estimate"]
+    
+    # get std.error
+    paper_tab_se <- stata_tab[, c("y", "sd1","sd2", "sd8","sd9","sd10")]
+    paper_tab_se[, statistic := "Std.Error"]
+    
+    # change the solumn names so we can stack them 
+    setnames(paper_tab_se, colnames(paper_tab_se), colnames(paper_tab_est))
+    
+    # stack them 
+    paper_tab <- rbind(paper_tab_est, paper_tab_se)
+    
+    # set order so that we get estimate then std.error 
+    setorder(paper_tab, y,-statistic)
+    
+    # order the columns 
+    setcolorder(paper_tab, c("y", "statistic"))
+    
+    # round the numeric  columns 
+    paper_tab[,3:7] <- round(paper_tab[,3:7])
+    
+    # rename columns 
+    setnames(paper_tab,
+             colnames(paper_tab),
+             c("Wave Relative to Hospitalizaiton",
+              "Statistic", "FE Est", "IW Est",
+              "Cohort 1 Est", "Cohort 2 Est", "Cohort 3 Est"))
+    
+    
+    
+  
