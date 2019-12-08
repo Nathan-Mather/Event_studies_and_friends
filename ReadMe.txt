@@ -3,6 +3,20 @@ The purpose of this document is to explain what each of the
 scripts in this repository is for. What package or papers is 
 it referencing, what is the purpose of the code. 
 
+#===========================#
+# Event_studies_and_friends #
+#===========================#
+
+#===============================================#
+# sources for Event studies and Friends package #
+#===============================================#
+This is just a word document with some notes and sources. 
+Mostly just for me (nate Mather) to have some internal notes about different packages, papers, and links 
+
+
+
+
+
 #=============================#
 # Investigate Packages Folder #
 #=============================#
