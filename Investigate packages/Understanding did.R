@@ -40,11 +40,16 @@
   # The following is a simplified example of the effect of states 
   # increasing their minimum wages on county-level teen employment 
   # rates which comes from Callaway and Sant'Anna (2019).
-  out <- mp.spatt(lemp ~ treat, xformla=~lpop, data=mpdta,
-                  panel=TRUE, first.treat.name="first.treat",
-                  idname="countyreal", tname="year",
-                  bstrap=FALSE, se=TRUE, cband=FALSE)
-  
+  out <- mp.spatt(formla          = lemp ~ treat,
+                  xformla          = ~lpop, 
+                  data             = mpdta,
+                  panel            = TRUE,
+                  first.treat.name = "first.treat",
+                  idname           = "countyreal",
+                  tname            = "year",
+                  bstrap           = FALSE,  
+                  se               = TRUE,
+                  cband            = FALSE)
   
   # here we can see average tretment effects for each group year combo 
   # "group" is defined by the time period when units are first treated
@@ -78,10 +83,14 @@
 # integrated moments test for conditional common trends holding in all pre-treatment time periods
 #  across all groups
 
-  mptest <- mp.spatt.test(lemp ~ treat, xformlalist=list(~lpop), data=mpdta,
-                          panel=TRUE, first.treat.name="first.treat",
-                          idname="countyreal", tname="year", clustervarlist=list(NULL))
-  
+  mptest <- mp.spatt.test(formla          = lemp ~ treat, 
+                          xformlalist      = list(~lpop),
+                          data             = mpdta,
+                          panel            = TRUE, 
+                          first.treat.name = "first.treat",
+                          idname           = "countyreal",
+                          tname            = "year", 
+                          clustervarlist   = list(NULL))
   summary(mptest[[1]])  
   
   

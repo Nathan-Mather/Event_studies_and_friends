@@ -32,7 +32,7 @@
 # entries for wave since it is a panal. After we make it balanced everyone should have 7-11 
 
 # event_time: is when the event (first hospitalization) happened relative to current time. it will be zero in the wave/year that the first hospitalization
-# happened -1 a year before it, 1 a year after it etc.
+# happened, -1 a year before it, 1 a year after it etc.
 
 #====================#
 # ==== load data ====
@@ -63,13 +63,16 @@
   
   # library(lfe)
   
-#set loaciton of data set 
+  #set a directory to save out data after preliminaries to use as test data for funciton 
+  out_path <- "C:/Users/Nmath_000/Documents/MI_school/Event_Study_and_friends/Funciton_test_data/"
+  
+  #set loaciton of data set 
   file_path <-  "C:/Users/Nmath_000/Documents/MI_school/Event_Study_and_friends/replication_code_Sun_Abraham/replication code/"
   
   # load data 
   hrs_raw <- data.table(haven::read_dta(paste0(file_path, "HRS_long.dta")))
 
-  # cope this for not while im messing with it 
+  # copy this for now while im messing with it 
   hrs <- copy(hrs_raw)
 
 #========================#
@@ -141,6 +144,16 @@
    # subset to under 60 
    hrs <- hrs[age_hosp <= 59]
    
+   # # save this as input data for out function
+   # vars_to_keep <- c("hhidpn", "oop_spend", "wave", "evt_time", "wave_hosp",
+   #                   grep("evt_time_", colnames(hrs),value = TRUE),
+   #                   grep("wave_", colnames(hrs),value = TRUE))
+   
+   vars_to_keep <- c("hhidpn", "oop_spend", "wave", "evt_time", "wave_hosp")
+   out_test_data <- hrs[,vars_to_keep, with = FALSE]
+
+   save(out_test_data, file = paste0(out_path, "AS_test_data.R"))
+   
 #=====================#
 # ==== Estimation ====
 #=====================#
@@ -162,7 +175,7 @@
                                paste0(dum_vars, collapse = " + " ),
                                "| hhidpn |0| hhidpn"))
      # run the regression 
-     # the results dont match reghdfe. Something to do with degrees of freedom calculcations or soemthing. Don't really follow it but 
+     ##note  the results dont match reghdfe. Something to do with degrees of freedom calculcations or soemthing. Don't really follow it but 
      # here is a github thread about it https://github.com/sgaure/lfe/issues/1
      # There is a Pull Request to add a method to equate the standard errors here https://github.com/sgaure/lfe/pull/26
      # the commented out code would work after that request or if I can get that code puled from github to work 
@@ -257,10 +270,10 @@
    #note this is also not matching. Need to figure it out but I can not right now so mocing on 
    names(formula_list) <- c("eq1", "eq2", 'eq3')
    sur_res <- systemfit(formula_list, method = "SUR", data = hrs_temp[wave<11])# the estiamtes match but 
-   Vcov <- vcov(sur_res) # vcov matrix does not match. Not sure what is wronge, maybe robust SE 
+   Vcov <- vcov(sur_res) ##note  vcov matrix does not match. Not sure what is wronge, maybe robust SE 
    
    
-# NOTE THIS IS WHERE THE RESTORE HAPPENS IN STATA
+#NOTE THIS IS WHERE THE RESTORE HAPPENS IN STATA
    
   # go back to using regular hrs data 
    rm(hrs_temp)

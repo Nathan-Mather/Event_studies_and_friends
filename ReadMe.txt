@@ -85,6 +85,18 @@ Mostly just for me (nate Mather) to have some internal notes about different pac
 	I am increasingly thinking the LFE package is better in general than the PLM packge though so this may not be useful. 
  
 
+#==================#
+# Functions Folder #
+#==================#
+
+This is the folder for new functions that we create 
+
+	#======================#
+	# Abraham_sun_function #
+	#======================#
+
+	Putting the Abraham and Sun methods from Estimating Dynamic Treatment Effects in Event Studies
+	with Heterogeneous Treatment Effects" into a generalizable function. This will estimate their IW estimates.
 
 
 
