@@ -28,14 +28,9 @@ AS_dummy_f <- function(in_data, in_var){
                 # for each value, create a dummy
                 for(val_i in values){
                   
-                  # if it has a minus sign change the name for the new variable 
-                  if(val_i < 0){
-                    
-                    var_name <- paste0(in_var, "_m", abs(val_i))
-                    
-                  }else{
-                    var_name <- paste0(in_var, "_", val_i)
-                  }
+                  # create a variable name and if it has a minus sign change the name for the new variable 
+                  var_name <- paste0(in_var, "_", val_i)
+                  var_name <- gsub("-", "m", var_name)
                   
                   # create variable in the data.table 
                   in_data[get(in_var) == val_i, (var_name) := 1]
@@ -91,8 +86,11 @@ AS_dummy_f <- function(in_data, in_var){
 #======================#
 # ==== AS Function ====
 #======================#
-require(data.table)
-
+# I see people using require a lot inside functions but the only differents is require throws a warning and library throws an error 
+# the function is not going to work without these packages so I would rather it throw an error 
+library(data.table)
+library(systemfit)
+library(lfe)
   
   
 
@@ -120,6 +118,9 @@ AS_IW <- function(in_data          = NULL,
     # change the variable names in our working data set 
     #note not totally sure about this. We could just work with the in_var names the entire time but it 
     # can get a bit clunky and it's probably easier to just change names and put them back at the end. 
+    #note also as I get further I realize I should change all the variable names. It's possible that 
+    # one of the input variaves, the ID variable for example, could trip some og the Grep's that I have 
+    # alternatively not using grep is probably a better option. 
     setnames(w_dt, c(in_time_var, in_rel_treat_var), c("time", "rel_treat") )
     
     # make a cohort variable 
@@ -166,16 +167,143 @@ AS_IW <- function(in_data          = NULL,
     
     # run system fit 
     #note this is also not matching. Need to figure it out but I can not right now so mocing on 
-    names(formula_list) <- c("eq1", "eq2", 'eq3')
+    names(formula_list) <- c(gsub("cohort_", "c",lhs_list))
     #note that we exclue the control cohort from this 
     sur_res <- systemfit(formula_list, method = "SUR", data = w_dt[cohort != control_cohort]) # the estiamtes match but 
     Vcov <- vcov(sur_res) ##note  vcov matrix does not match. Not sure what is wronge, maybe robust SE 
     
   
-  #================#
-  # ==== do IW ====
-  #================#
+  #========================#
+  # ==== Estimate CATT ====
+  #========================#
+  # CATT = cohort average treatment effects 
+  
+    
+    # create interaction variables for "saturated regression"
+    # start by creating a concatinated variable of rel_treat and cohort 
+    w_dt[, treat_coh := paste0(rel_treat, "_", cohort)]
+  
+    # now make dummies for it 
+    AS_dummy_f( in_data = w_dt, "treat_coh")
+    
+    # now set the dummies to zero for the control group 
+    # first grab the vars 
+    treat_coh_dums <- grep("treat_coh_", colnames(w_dt), value = TRUE)
+    
+    # now make the change 
+    w_dt[cohort == control_cohort, (treat_coh_dums) := 0]
+    
+    # get all the combinations of relative treatment and cohort in the relevant data set 
+    relevant_combos <- w_dt[cohort != control_cohort, .N, c("rel_treat", "cohort") ]
 
+    # get common relatvie treatment accross these groups to use as a control (-1 in AS setting)
+    control_rel_treat <- relevant_combos[, list(rel_treat_n = .N), rel_treat]
+    control_rel_treat <- control_rel_treat[ rel_treat_n == max(rel_treat_n), rel_treat]
+    
+    # iRemove zero from the list of options. I don't think in most cases people are going to want the time of the event as a control 
+    control_rel_treat <- setdiff(control_rel_treat, 0)
+    
+    # if there is nothing left throw an error 
+    #Note Probably this doesn't need to be an error. I think we could probably have a different control group for the different cohorts but 
+    # I am not sure. Something to think about 
+    if(length(control_rel_treat) == 0) stop( paste0("Your cohorts do not have any ",
+                                                    in_rel_treat_var, 
+                                                    " values in common to use as a control. I suggest trying fewer cohorts to get more overlap in treatment effects."))
+    
+    # Now just pick the frst one of the rest of the options 
+    control_rel_treat <- control_rel_treat[[1]]
+    
+    # remove it from the relevant combos 
+    relevant_combos <- relevant_combos[rel_treat != control_rel_treat]
+    
+    # # use this to put together RHS of regression 
+    relevant_combos[, suffix := paste0(gsub("-", "m", rel_treat), "_", cohort)]
+    RHS <- paste0("treat_coh_", relevant_combos$suffix)
+    
+    # add in time fixed effects
+    time_FE <- paste0("time_", sort(unique(w_dt$time))[-1])
+    RHS <- paste0(c(RHS, time_FE), collapse = " + ")
+    
+    # make formula 
+    form <- as.formula(paste0(in_outcome_var, " ~ ",
+                              RHS,
+                              "| ",
+                              in_id_var,
+                              "|0|",
+                              in_id_var))
+  
+    
+    # run regression 
+    reg_res <- felm(form,
+                       data = w_dt)
+    
+    reg_tab <- data.table( term       = rownames(reg_res$coefficients),
+                              estimate   = as.numeric(reg_res$coefficients),
+                              robust_ste = reg_res$cse,
+                              t          = reg_res$ctval,
+                              p_val      = reg_res$cpval)
+    
+  #=================#
+  # ==== get IW ====
+  #=================#
+    
+    # Generate counts for each cohort
+    c_list <- w_dt[, list(count = uniqueN(get(in_id_var))), cohort]
+
+
+
+  # Now we need to do linear combinations of the different estimate and adjust the standard errors 
+  #note I suppose let's do this with a loop 
+    #note delete this, its for debug 
+    rel_treat_i <- relevant_combos[, unique(rel_treat)][[2]]
+    
+  # get relative treatment list to loop over 
+  rel_treat_list <- relevant_combos[, unique(rel_treat)]
+    
+  # create a list for results 
+  res_list <- vector("list", length = length(rel_treat_list))
+  
+  # start for loop 
+  for(i in 1:length(rel_treat_list)){
+    
+    rel_treat_i <- rel_treat_list[[i]]
+    
+    # Figure out what cohorts have this rel_treat effect 
+    rel_coh_i <- relevant_combos[rel_treat == rel_treat_i, cohort]
+    
+    # make the varibles list that we need 
+    vars_i <- paste0("treat_coh_", gsub("-","m",rel_treat_i), "_", rel_coh_i)
+    vcov_vars_i <- paste0("c", rel_coh_i, "_rel_treat_", gsub("-","m",rel_treat_i))
+    
+    #Do linear combo 
+    # start by calculating the SE adjustment 
+    if(length(rel_coh_i) > 1){
+      tempb <- as.matrix(reg_tab[ term %chin% vars_i, estimate])
+      tempVcov <- as.matrix(Vcov[vcov_vars_i, vcov_vars_i]  )
+      temp <-  t(tempb)%*%tempVcov %*% tempb
+    }else{
+      temp <- 0
+    }
+    
+    # now make list of linear combos and weights 
+    weights <- c_list[cohort %in% rel_coh_i]
+    weights[, weights := count/sum(count)]
+    weights[, name :=  paste0("treat_coh_", gsub("-","m",rel_treat_i), "_", cohort )]
+    weight_list <- weights$weights
+    names(weight_list) <- weights$name
+    
+    # Now do linear combo 
+    res <- as.data.frame(svycontrast(reg_res, weight_list))
+   
+    res_list[[i]] <- data.table(rel_treat = rel_treat_i, coef = res[,1], var = as.numeric(res[,2]^2 + temp))
+
+    # put it in the result lists 
+    
+  # end for loop 
+  }
+  
+  # stack results 
+  IW_res <- rbindlist(res_list)
   
   
   
@@ -183,6 +311,5 @@ AS_IW <- function(in_data          = NULL,
   
   
   
-  
-  
+# end funciton 
 }
