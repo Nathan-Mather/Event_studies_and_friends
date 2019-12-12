@@ -7,6 +7,7 @@
   
   # - purpose of code:
   # Put Abraham and Sun Method into a generalizable function 
+  # there extra stuff around the function for debugging. We can scrap all that when it's ready for a package 
   
   # -requirments to run 
   # Data.table package: I love data.table and it's fast. IMO it is worth the dependency. 
@@ -43,6 +44,14 @@ AS_dummy_f <- function(in_data, in_var){
 }
 
 
+ea_scan <- function (in_var_split = NULL, in_val_position = NULL, in_val_delim = NULL) 
+{
+  out_var <- sapply(strsplit(in_var_split, in_val_delim), function(x) x[in_val_position])
+  return(out_var)
+}
+
+
+
 #============================#
 # ==== load example data ====
 #============================#
@@ -58,7 +67,7 @@ AS_dummy_f <- function(in_data, in_var){
   in_data = hrs 
   in_id_var        = "hhidpn"
   in_outcome_var   = "oop_spend"
-  in_time_var    = "wave"
+  in_time_var      = "wave"
   in_rel_treat_var = "evt_time"
 
   
@@ -236,13 +245,14 @@ AS_IW <- function(in_data          = NULL,
     # run regression 
     reg_res <- felm(form,
                        data = w_dt)
+
     
     reg_tab <- data.table( term       = rownames(reg_res$coefficients),
                               estimate   = as.numeric(reg_res$coefficients),
                               robust_ste = reg_res$cse,
                               t          = reg_res$ctval,
                               p_val      = reg_res$cpval)
-    
+
   #=================#
   # ==== get IW ====
   #=================#
@@ -294,10 +304,11 @@ AS_IW <- function(in_data          = NULL,
     
     # Now do linear combo 
     res <- as.data.frame(svycontrast(reg_res, weight_list))
-   
+    
+    # put it in the result lists
     res_list[[i]] <- data.table(rel_treat = rel_treat_i, coef = res[,1], var = as.numeric(res[,2]^2 + temp))
 
-    # put it in the result lists 
+   
     
   # end for loop 
   }
@@ -305,11 +316,53 @@ AS_IW <- function(in_data          = NULL,
   # stack results 
   IW_res <- rbindlist(res_list)
   
+  # sort 
+  setorder(IW_res, rel_treat)
+  
+  # add SE 
+  IW_res[, sd := sqrt(var)]
+  IW_res[, var := NULL]
+  
+  # clean up saturated regression table 
+  reg_tab[term %like% "treat_coh_", suffix := gsub("treat_coh_", "",term)]
+  reg_tab[, rel_treat := ea_scan(suffix, 1, "_")]
+  reg_tab[, rel_treat := as.numeric(gsub("m", "-", rel_treat))]
+  reg_tab[, cohort :=  as.numeric(ea_scan(suffix, 2, "_"))]
+  reg_tab[, suffix := NULL]
+  setcolorder(reg_tab, c("term", "cohort", "rel_treat"))
+  setorder(reg_tab, cohort, rel_treat)
+  
+ 
+  # put it all in one big table
+  # not sure what we want this to look like. have to think about it a bit 
+  
+  # put everything people could ever want it in a big ol list 
+  # for now all I can thik of is the CATT estimates, the time FE from the CATT reg, and the IW estimates 
+  out_list <- list() #note should initialize this with the length and names that we eventually decide to use 
   
   
   
+  out_list[["CATT"]] <- reg_tab[]
   
+  out_list[["IW"]] <- IW_res
   
+  # return it 
+  return(out_list)
   
 # end funciton 
 }
+
+
+
+
+#==================#
+# ==== test it ====
+#==================#  
+test_result <- AS_IW(in_data          = hrs,
+                     in_id_var        = "hhidpn",
+                     in_outcome_var   = "oop_spend",
+                     in_time_var      = "wave",
+                     in_rel_treat_var = "evt_time")
+
+
+
