@@ -279,8 +279,10 @@ AS_IW <- function(in_data          = NULL,
   #=================#
     
     # Generate counts for each cohort
+    #note, this works because it is a balanced panal. NOt sure if this works if it isnt, need to think about it 
     c_list <- w_dt[, list(count = uniqueN(ID)), cohort]
 
+  
   # Now we need to do linear combinations of the different estimate and adjust the standard errors 
   #note I suppose let's do this with a loop 
     #note delete this, its for debug 
@@ -290,7 +292,7 @@ AS_IW <- function(in_data          = NULL,
     
   # create a list for results 
   res_list <- vector("list", length = length(rel_treat_list))
-  
+
   # start for loop 
   for(i in 1:length(rel_treat_list)){
     
@@ -325,7 +327,6 @@ AS_IW <- function(in_data          = NULL,
     # put it in the result lists
     res_list[[i]] <- data.table(rel_treat = rel_treat_i, coef = res[,1], var = as.numeric(res[,2]^2 + temp))
 
-   
     
   # end for loop 
   }

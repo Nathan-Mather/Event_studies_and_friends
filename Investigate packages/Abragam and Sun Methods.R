@@ -74,6 +74,9 @@
 
   # copy this for now while im messing with it 
   hrs <- copy(hrs_raw)
+  
+  # option for if I want to match the paper or fix any mistakes I think they made 
+  opt_match_paper <- TRUE
 
 #========================#
 # ==== Preliminaries ====
@@ -135,14 +138,26 @@
    # rename the wave dummies to match what they did in stata 
    setnames(hrs, paste0("wave_", c(1:5)), paste0("wave_", c(7:11)))
   
+
+   # if we arent trying to match the paper we should subset before we get counts 
+   if(!opt_match_paper){
+   # subset to under 60 
+   hrs <- hrs[age_hosp <= 59]
+   }
+   
    # Generate counts for each cohort
    c_7 <- hrs[wave_hosp == 7 & wave ==7, .N]
    c_8 <- hrs[wave_hosp == 8 & wave ==7, .N]
    c_9 <- hrs[wave_hosp == 9 & wave ==7, .N]
    c_10 <- hrs[wave_hosp == 10 & wave ==7, .N]
    
-   # subset to under 60 
-   hrs <- hrs[age_hosp <= 59]
+   # if we are try ing to match the paper subset after the counts liek they do 
+   if(opt_match_paper){
+     # subset to under 60 
+     hrs <- hrs[age_hosp <= 59]
+   }
+   
+   
    
    # # save this as input data for out function
    # vars_to_keep <- c("hhidpn", "oop_spend", "wave", "evt_time", "wave_hosp",
@@ -271,7 +286,7 @@
    names(formula_list) <- c("eq1", "eq2", 'eq3')
    sur_res <- systemfit(formula_list, method = "SUR", data = hrs_temp[wave<11])# the estiamtes match but 
    Vcov <- vcov(sur_res) ##note  vcov matrix does not match. Not sure what is wronge, maybe robust SE 
-   
+   Vcov_test <- Vcov
    
 #NOTE THIS IS WHERE THE RESTORE HAPPENS IN STATA
    
@@ -374,7 +389,7 @@
   tempVcov <- as.matrix(Vcov[c(4,9), c(4,9)]  )
   temp <-  t(tempb)%*%tempVcov %*% tempb
   
-  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_6_8" = c_8/(c_8 + c_9), "evt_time_6_9" = c_10/(c_8 + c_9))))
+  res <- as.data.frame(svycontrast(reg_res_11, c("evt_time_6_8" = c_8/(c_8 + c_9), "evt_time_6_9" = c_9/(c_8 + c_9))))
   b <- c(b, res[,1])
   V <- c(V, res[,2]^2 + temp)
   
