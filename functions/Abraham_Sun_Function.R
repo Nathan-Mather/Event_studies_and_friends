@@ -85,7 +85,7 @@ ea_scan <- function (in_var_split = NULL, in_val_position = NULL, in_val_delim =
   #'@param in_id_var The Variable Name for an id variable identifying individuals in in_data. Entered as a quoted character 
   #'@param in_outcome_var The variable name for the outcome variable of interest. Entered as a quoted character 
   #'@param in_time_var The variable name for a numeric time variable in in_data. This is the period for a given row in the panel data. Entered as a quoted character 
-  #'@param in_rel_treat_var The variable name for a numeric variable in in_data indicating the amount of time since treatment. 
+  #'@param in_rel_treat_var The variable name for a numeric variable in in_data indicating the amount of time since treatment. This needs to be in the same scale as the in_time var
   #'Negative indicates time period is before treatmet. Entered as a quoted character 
   #'@details See the working paper http://economics.mit.edu/files/14964
   #'@examples 
@@ -109,28 +109,47 @@ AS_IW <- function(in_data          = NULL,
                   in_time_var      = NULL,
                   in_rel_treat_var = NULL){
   
-  #====================================#
-  # ==== do checks and set up data ====
-  #====================================#
+  #====================#
+  # ==== do checks ====
+  #====================#
 
-    
     # check that in data is a data.table and exists 
-    
-    # Make out working data set 
-    w_dt <- in_data[, c(in_id_var, in_outcome_var, in_time_var, in_rel_treat_var), with = FALSE]
+    if(!any(class(in_data) == "data.table")){
+      
+      stop("in_data must be entered as a data.table")
+    }
   
-    # check that the variables exist 
+    # check that the variables they enetered actually  exist 
+    in_cols <- c(in_id_var, in_outcome_var, in_time_var, in_rel_treat_var)
+    for(col_i in in_cols){
+      
+      # check that it is a column
+      if(!col_i %in% colnames(in_data)){
+        stop(paste0(col_i, " is not a column name in in_data"))
+      }
+
+      
+    }
     
     # check that in_cohort_var and in_rel_treat_var are numeric 
     #note not sure if cohort needs to be numeric. Can think about that later. 
+  
     
+    
+  #==========================#
+  # ==== and set up data ====
+  #==========================#
+
+    
+    # Make our working data set 
+    w_dt <- in_data[, in_cols, with = FALSE]
+  
+
     # change the variable names in our working data set 
     #note not totally sure about this. We could just work with the in_var names the entire time but it 
     # can get a bit clunky and it's probably easier to just change names and put them back at the end. 
-    #note also as I get further I realize I should change all the variable names. It's possible that 
-    # one of the input variaves, the ID variable for example, could trip some og the Grep's that I have 
-    # alternatively not using grep is probably a better option. 
-    setnames(w_dt, c(in_time_var, in_rel_treat_var), c("time", "rel_treat") )
+    # I could also do everything by numeric reference but I am not a fan of that. Too easy for things to break silently 
+    setnames(w_dt, in_cols, c("ID", "outcome", "time", "rel_treat") )
     
     # make a cohort variable 
     w_dt[, cohort := time - rel_treat]
@@ -141,7 +160,7 @@ AS_IW <- function(in_data          = NULL,
     # Now pick a control cohort, it'l be the last cohort observed 
     control_cohort <- max(unique(w_dt[, cohort]))
     
-    # now we make relative treatment dummies 0 for all of these. We are making it as if there were never treated.
+    # now we make relative treatment dummies 0 for all of these. We are making it as if they were never treated.
     # first grab the vars 
     rel_treat_dums <- grep("rel_treat_", colnames(w_dt), value = TRUE)
     
@@ -152,7 +171,7 @@ AS_IW <- function(in_data          = NULL,
     # artifically set it so no one is treated that period 
     #note I need to check on the reasononing behind this. Not sure that this is exactly what you would want if you had periods 
     # past your last cohort where no one was actually treated. 
-    #note in Abraham sun code they just continuously exclude wave 11 from regs but I don't see why we shuoldn't just drop it 
+    #note in Abraham sun code they just keep excluding wave 11 from regs, but I don't see why we shuoldn't just drop it 
     w_dt <- w_dt[time < control_cohort]
     
   #=================#
@@ -166,17 +185,19 @@ AS_IW <- function(in_data          = NULL,
     # get rhs vars 
     # first check wich relative treatment vars are actually in use for our group of interest 
     rhs_nums <- sort(w_dt[cohort < control_cohort, unique(rel_treat)  ])
+    # create the suffix 
     rhs_nums <- gsub("-", "m", rhs_nums)
+    # maek the variable names and collapse them for the forumla
     rhs <- paste0(paste0("rel_treat_", rhs_nums[-1]),collapse = " + ")
     
      # make the three formulas 
     formula_list <- lapply(paste0(lhs_list, "~", rhs, "-1"), as.formula)
     
-    
+    # name the formula list based on the cohorts i,e, the LHS variable 
+    names(formula_list) <- c(gsub("cohort_", "c",lhs_list))
     
     # run system fit 
-    #note this is also not matching. Need to figure it out but I can not right now so mocing on 
-    names(formula_list) <- c(gsub("cohort_", "c",lhs_list))
+    #note this is also not matching. Need to figure it out but I can not right now so mocing on
     #note that we exclue the control cohort from this 
     sur_res <- systemfit(formula_list, method = "SUR", data = w_dt[cohort != control_cohort]) # the estiamtes match but 
     Vcov <- vcov(sur_res) ##note  vcov matrix does not match. Not sure what is wronge, maybe robust SE 
@@ -185,27 +206,27 @@ AS_IW <- function(in_data          = NULL,
   #========================#
   # ==== Estimate CATT ====
   #========================#
-  # CATT = cohort average treatment effects 
+  # CATT is cohort average treatment effects 
   
     
     # create interaction variables for "saturated regression"
     # start by creating a concatinated variable of rel_treat and cohort 
     w_dt[, treat_coh := paste0(rel_treat, "_", cohort)]
   
-    # now make dummies for it 
+    # now make dummies for the concatinated variable 
     AS_dummy_f( in_data = w_dt, "treat_coh")
     
     # now set the dummies to zero for the control group 
     # first grab the vars 
     treat_coh_dums <- grep("treat_coh_", colnames(w_dt), value = TRUE)
     
-    # now make the change 
+    # now change all those columns to zero for the control cohort 
     w_dt[cohort == control_cohort, (treat_coh_dums) := 0]
     
     # get all the combinations of relative treatment and cohort in the relevant data set 
     relevant_combos <- w_dt[cohort != control_cohort, .N, c("rel_treat", "cohort") ]
 
-    # get common relatvie treatment accross these groups to use as a control (-1 in AS setting)
+    # get a common "relatvie treatment" accross these groups to use as a control (-1 in AS setting)
     control_rel_treat <- relevant_combos[, list(rel_treat_n = .N), rel_treat]
     control_rel_treat <- control_rel_treat[ rel_treat_n == max(rel_treat_n), rel_treat]
     
@@ -234,12 +255,12 @@ AS_IW <- function(in_data          = NULL,
     RHS <- paste0(c(RHS, time_FE), collapse = " + ")
     
     # make formula 
-    form <- as.formula(paste0(in_outcome_var, " ~ ",
+    form <- as.formula(paste0("outcome ", " ~ ",
                               RHS,
                               "| ",
-                              in_id_var,
+                              "ID",
                               "|0|",
-                              in_id_var))
+                              "ID"))
   
     
     # run regression 
@@ -258,15 +279,12 @@ AS_IW <- function(in_data          = NULL,
   #=================#
     
     # Generate counts for each cohort
-    c_list <- w_dt[, list(count = uniqueN(get(in_id_var))), cohort]
-
-
+    c_list <- w_dt[, list(count = uniqueN(ID)), cohort]
 
   # Now we need to do linear combinations of the different estimate and adjust the standard errors 
   #note I suppose let's do this with a loop 
     #note delete this, its for debug 
-    rel_treat_i <- relevant_combos[, unique(rel_treat)][[2]]
-    
+
   # get relative treatment list to loop over 
   rel_treat_list <- relevant_combos[, unique(rel_treat)]
     
@@ -284,8 +302,7 @@ AS_IW <- function(in_data          = NULL,
     # make the varibles list that we need 
     vars_i <- paste0("treat_coh_", gsub("-","m",rel_treat_i), "_", rel_coh_i)
     vcov_vars_i <- paste0("c", rel_coh_i, "_rel_treat_", gsub("-","m",rel_treat_i))
-    
-    #Do linear combo 
+   
     # start by calculating the SE adjustment 
     if(length(rel_coh_i) > 1){
       tempb <- as.matrix(reg_tab[ term %chin% vars_i, estimate])
