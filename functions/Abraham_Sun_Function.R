@@ -185,8 +185,10 @@ AS_IW <- function(in_data          = NULL,
     # get rhs vars 
     # first check wich relative treatment vars are actually in use for our group of interest 
     rhs_nums <- sort(w_dt[cohort < control_cohort, unique(rel_treat)  ])
+    
     # create the suffix 
     rhs_nums <- gsub("-", "m", rhs_nums)
+    
     # maek the variable names and collapse them for the forumla
     rhs <- paste0(paste0("rel_treat_", rhs_nums[-1]),collapse = " + ")
     
