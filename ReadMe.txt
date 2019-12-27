@@ -98,6 +98,25 @@ This is the folder for new functions that we create
 	Putting the Abraham and Sun methods from Estimating Dynamic Treatment Effects in Event Studies
 	with Heterogeneous Treatment Effects" into a generalizable function. This will estimate their IW estimates.
 
+	
+
+	#=========================================#
+	# ==== Bilinski and Hatfield Function ====
+	#=========================================#
+
+	use the method from the bilinski and Hatfield function to impliment their test on a pretrends test
+	there extra stuff around the function for debugging. Specifically I make some simulated data in here.
+	we can move that to a seperate testing script once we are closer to a final version 
+
+#=======================#
+# function tests folder #
+#=======================#
+
+Just what it sounds like. runs tests on the functions in the functions folder 
 
 
+
+	#================================#
+	# ==== abraham and sun tests ====
+	#================================#
 

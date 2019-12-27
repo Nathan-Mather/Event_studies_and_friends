@@ -189,21 +189,13 @@
      form <- as.formula(paste0("oop_spend ~ ",
                                paste0(dum_vars, collapse = " + " ),
                                "| hhidpn |0| hhidpn"))
-     # run the regression 
-     ##note  the results dont match reghdfe. Something to do with degrees of freedom calculcations or soemthing. Don't really follow it but 
-     # here is a github thread about it https://github.com/sgaure/lfe/issues/1
-     # There is a Pull Request to add a method to equate the standard errors here https://github.com/sgaure/lfe/pull/26
-     # the commented out code would work after that request or if I can get that code puled from github to work 
-     # for now the standard errors will just be off 
-     # this should work avter the pull request 
-     # reg_res <- felm(form,
-     #                 data = hrs[ever_hospitalized == 1],
-     #                 cmethod = "reghdfe")
      
-     # we have controls for the wave that ypu are in. This is your T and is a control not the outcome of interest 
-     # Then we have The event time. This is the wave relative to the hospitalizaiton 
+     # run the regression
+     #note this should match stata now with the updated cmethdd 
      reg_res <- felm(form,
-                     data = hrs[ever_hospitalized == 1])
+                     data = hrs[ever_hospitalized == 1],
+                     cmethod = "reghdfe")
+     
      
      b2way_hrs
      
@@ -330,7 +322,8 @@
   # use FELM, agin remember the SE wont match 
   # this is the "saturated" regression of equation (11). We get cohort time treatment effects 
   reg_res_11 <- felm(form,
-                  data = hrs[ever_hospitalized == 1 & wave < 11])
+                  data = hrs[ever_hospitalized == 1 & wave < 11],
+                  cmethod = "reghdfe")
   
 
   
