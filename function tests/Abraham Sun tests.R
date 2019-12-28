@@ -126,11 +126,13 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   in_outcome_var   = "outcome"
   in_time_var      = "time"
   in_cohort_var = "cohort"
+  in_group_var  = "school"
   
   
-  test_result <- AS_IW(in_data          = hrs,
-                       in_id_var        = "hhidpn",
-                       in_outcome_var   = "oop_spend",
-                       in_time_var      = "wave",
-                       in_cohort_var = "wave_hosp")
+  test_result <- AS_IW(in_data          = r_dt,
+                       in_id_var        =  "stud",
+                       in_outcome_var   = "outcome",
+                       in_time_var      = "time",
+                       in_cohort_var    = "cohort",
+                       in_group_var     = "school")
   

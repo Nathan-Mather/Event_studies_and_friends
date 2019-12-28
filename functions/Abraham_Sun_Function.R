@@ -69,6 +69,7 @@ ea_scan <- function (in_var_split = NULL, in_val_position = NULL, in_val_delim =
   #'@param in_cohort_var The variable name for a numeric variable in in_data indicating the amount of time since treatment. This needs to be in the same scale as the in_time var
   #'Negative indicates time period is before treatmet. Entered as a quoted character 
   #'@param omitted_relative_treatment pick the relative treatment time effect to exclude as a control. The default is to find one for you (most likely to be -1), but if you want to pick explicitly than enter that here 
+  #'@param in_group_var An optional variable indicating the treatment groups. This is for instances where treatment happens at group level but we want the regressions weighted by observation. 
   #'@details See the working paper http://economics.mit.edu/files/14964
   #'@examples 
   
@@ -89,12 +90,17 @@ AS_IW <- function(in_data                    = NULL,
                   in_outcome_var             = NULL,
                   in_time_var                = NULL,
                   in_cohort_var              = NULL,
+                  in_group_var               = NULL,
                   omitted_relative_treatment = NULL){
   
   
   #====================#
   # ==== do checks ====
   #====================#
+  
+    # see if user has included a group 
+    group_flag <- !is.null(in_group_var)
+    
 
     # check that in data is a data.table and exists 
     if(!any(class(in_data) == "data.table")){
@@ -102,9 +108,10 @@ AS_IW <- function(in_data                    = NULL,
       stop("in_data must be entered as a data.table")
     }
   
-    # check that the variables they enetered actually  exist 
-    in_cols <- c(in_id_var, in_outcome_var, in_time_var, in_cohort_var)
+    # make list of variables we need 
+    in_cols <- c(in_id_var, in_outcome_var, in_time_var, in_cohort_var, in_group_var)
     
+    # check that columns exist 
     for(col_i in in_cols){
       
       # check that it is a column
@@ -118,8 +125,8 @@ AS_IW <- function(in_data                    = NULL,
     # check that in_cohort_var and in_time_var are numeric 
     if(!class(in_data[[in_cohort_var]]) %chin% c("numeric", "integer"))stop(paste0(in_cohort_var, " is not numeric or integer"))
     if(!class(in_data[[in_time_var]])  %chin% c("numeric", "integer"))stop(paste0(in_time_var, " is not numeric or integer"))
-      
     
+
     
   #==========================#
   # ==== and set up data ====
@@ -134,7 +141,12 @@ AS_IW <- function(in_data                    = NULL,
     #note not totally sure about this. We could just work with the in_var names the entire time but it 
     # can get a bit clunky and it's probably easier to just change names and put them back at the end. 
     # I could also do everything by numeric reference but I am not a fan of that. Too easy for things to break silently 
-    setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort") )
+    if(group_flag){
+      setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort", "group") )
+    }else{
+      setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort") )
+    }
+   
     
     # make a relative treatment variable 
     w_dt[, rel_treat := time - cohort]
@@ -146,6 +158,12 @@ AS_IW <- function(in_data                    = NULL,
     # Check if control cohort exists. That will be observations with NA in the cohort variabe 
     n_control <- nrow(w_dt[is.na(cohort)])
     print(paste0(n_control, " control observations found"))
+    
+    # if there is a group check the number of control groups 
+    if(group_flag){
+      n_cont_group <- length(w_dt[is.na(cohort), unique(group)])
+      print(paste0(n_cont_group, " control groups found"))
+    }
     
     # if there is no NA cohorts to use as control throw an error 
     if(n_control ==0 ){
@@ -167,6 +185,8 @@ AS_IW <- function(in_data                    = NULL,
   #=================#
   # ==== do SUR ====
   #=================#
+    
+    #note not sure how to do the group version here. Need to talk to Brian or Avi about this. 
 
     # get lhs vars. We need the dummy vars for each cohort
     lhs_list <- cohort_dums
@@ -205,71 +225,81 @@ AS_IW <- function(in_data                    = NULL,
    
     # get all the combinations of relative treatment and cohort in the relevant data set 
     relevant_combos <- w_dt[!is.na(cohort), .N, c("rel_treat", "cohort") ]
+    
+    
+    #==============================#
+    # ==== find control cohort ====
+    #==============================#
 
-    # get a common "relatvie treatment" accross these groups to use as a control (-1 in AS setting)
-    control_rel_treat <- relevant_combos[, list(rel_treat_n = .N), rel_treat]
-    control_rel_treat <- control_rel_treat[ rel_treat_n == max(rel_treat_n), rel_treat]
-    
-    # iRemove anything grater than or equal to zero from the list of options.
-    #  these are time periods with potentially hypothezised true effects. So not good for a control
-    control_rel_treat <- control_rel_treat[control_rel_treat < 0]
-    
-    # if there is nothing left throw an error 
-    if(length(control_rel_treat) == 0) stop( paste0("Your cohorts do not have any relative treatment variable",
-                                                    " values in common that are also less than zero to use as a control.",
-                                                    " I suggest trying fewer cohorts to get more overlap in relative treatment effects."))
-    
-    # Now either check for the one the user asked to use or just pick one 
-    if(!is.null(omitted_relative_treatment)){
+      # get a common "relatvie treatment" accross these groups to use as a control (-1 in AS setting)
+      control_rel_treat <- relevant_combos[, list(rel_treat_n = .N), rel_treat]
+      control_rel_treat <- control_rel_treat[ rel_treat_n == max(rel_treat_n), rel_treat]
       
-      # now grab the requested omitted_relative_treatment if it is in the list of options 
-      control_rel_treat <- intersect(control_rel_treat, omitted_relative_treatment)
+      # iRemove anything grater than or equal to zero from the list of options.
+      #  these are time periods with potentially hypothezised true effects. So not good for a control
+      control_rel_treat <- control_rel_treat[control_rel_treat < 0]
       
-      # if it is not in the options throw an error 
-      if(length(control_rel_treat) == 0){
-        stop("the omitted relative variable you requested does not exist for every cohort. Pick another one that does or let the funciton find one for you.")
+      # if there is nothing left throw an error 
+      if(length(control_rel_treat) == 0) stop( paste0("Your cohorts do not have any relative treatment variable",
+                                                      " values in common that are also less than zero to use as a control.",
+                                                      " I suggest trying fewer cohorts to get more overlap in relative treatment effects."))
+      
+      # Now either check for the one the user asked to use or just pick one 
+      if(!is.null(omitted_relative_treatment)){
+        
+        # now grab the requested omitted_relative_treatment if it is in the list of options 
+        control_rel_treat <- intersect(control_rel_treat, omitted_relative_treatment)
+        
+        # if it is not in the options throw an error 
+        if(length(control_rel_treat) == 0){
+          stop("the omitted relative variable you requested does not exist for every cohort. Pick another one that does or let the funciton find one for you.")
+        }
+        
+      }else{
+      
+        # otherwise just pick one and print it out so they know 
+        control_rel_treat <- sort(control_rel_treat, decreasing = TRUE)[[1]]
+        
+        print(paste0("relative treatment of ", control_rel_treat, " is excluded as a control"))
       }
       
-    }else{
-    
-      # otherwise just pick one and print it out so they know 
-      control_rel_treat <- sort(control_rel_treat, decreasing = TRUE)[[1]]
       
-      print(paste0("relative treatment of ", control_rel_treat, " is excluded as a control"))
-    }
-    
-    
-    # remove it from the relevant combos 
-    relevant_combos <- relevant_combos[rel_treat != control_rel_treat]
-    
-    # # use this to put together RHS of regression 
-    relevant_combos[, suffix := paste0(gsub("-", "m", rel_treat), "_", cohort)]
-    RHS <- paste0("treat_coh_", relevant_combos$suffix)
-    
-    # add in time fixed effects
-    time_FE <- paste0("time_", sort(unique(w_dt$time))[-1])
-    RHS <- paste0(c(RHS, time_FE), collapse = " + ")
-    
-    # make formula 
-    form <- as.formula(paste0("outcome ", " ~ ",
-                              RHS,
-                              "| ",
-                              "ID",
-                              "|0|",
-                              "ID"))
-  
-    
-    # run regression 
-    reg_res <- felm(form,
-                       data = w_dt,
-                    cmethod = "reghdfe")
+      # remove it from the relevant combos 
+      relevant_combos <- relevant_combos[rel_treat != control_rel_treat]
+      
+    #=========================#
+    # ==== run regression ====
+    #=========================#
 
+          
+      # # use this to put together RHS of regression 
+      relevant_combos[, suffix := paste0(gsub("-", "m", rel_treat), "_", cohort)]
+      RHS <- paste0("treat_coh_", relevant_combos$suffix)
+      
+      # add in time fixed effects
+      time_FE <- paste0("time_", sort(unique(w_dt$time))[-1])
+      RHS <- paste0(c(RHS, time_FE), collapse = " + ")
+      
+      # make formula 
+      form <- as.formula(paste0("outcome ", " ~ ",
+                                RHS,
+                                "| ",
+                                "ID",
+                                "|0|",
+                                "ID"))
     
-    reg_tab <- data.table( term       = rownames(reg_res$coefficients),
-                              estimate   = as.numeric(reg_res$coefficients),
-                              robust_ste = reg_res$cse,
-                              t          = reg_res$ctval,
-                              p_val      = reg_res$cpval)
+      
+      # run regression 
+      reg_res <- felm(form,
+                         data = w_dt,
+                      cmethod = "reghdfe")
+  
+      
+      reg_tab <- data.table( term       = rownames(reg_res$coefficients),
+                                estimate   = as.numeric(reg_res$coefficients),
+                                robust_ste = reg_res$cse,
+                                t          = reg_res$ctval,
+                                p_val      = reg_res$cpval)
 
   #=================#
   # ==== get IW ====
@@ -282,7 +312,6 @@ AS_IW <- function(in_data                    = NULL,
     
     # Now we need to do linear combinations of the different estimate and adjust the standard errors 
     #note I suppose let's do this with a loop 
-      #note delete this, its for debug 
 
     # get relative treatment list to loop over 
     rel_treat_list <- relevant_combos[, unique(rel_treat)]
