@@ -29,6 +29,9 @@
   # # Note that this functon helped me figure some stuff out 
   # View(TOSTtwo)
   
+  # or see it on github here 
+  # https://github.com/cran/TOSTER/blob/master/R/TOSTtwo.R
+  
   # set the path of the function 
   source("c:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Bilinski_Hatfield_function.R")
 
@@ -79,12 +82,17 @@
                in_outcome_var = "y",
                in_threshold   = 3)
 
-  HB_pretrends(in_data        = t1_dt,
+  z <- HB_pretrends(in_data        = t1_dt,
                in_treat_var   = "treat",
                in_time_var    = "period",
                in_outcome_var = "y",
-               in_threshold   = .01)
+               in_threshold   = .1,
+               opt_return_reg = TRUE)
   
+  z$EQ_test
+  reg <- z$Reg_tab
+  reg[, `Pr(>|t|)` := round(`Pr(>|t|)`,4)]
+
   
   #============================#
   # ==== unparalell trends ====
@@ -120,11 +128,13 @@
   in_threshold   = .5
   
   
-  HB_pretrends(in_data        = t2_dt,
+  z <- HB_pretrends(in_data        = t2_dt,
                in_treat_var   = "treat",
                in_time_var    = "period",
                in_outcome_var = "y",
-               in_threshold   = .5)
+               in_threshold   = .5,
+                opt_return_reg = TRUE)
+  
   
   HB_pretrends(in_data        = t2_dt,
                in_treat_var   = "treat",

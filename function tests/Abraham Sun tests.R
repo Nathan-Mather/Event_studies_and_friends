@@ -119,20 +119,25 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   # now generate outcome variable 
   r_dt[, outcome := 0 + B_trend*time + school_fe + stud_fe + treatment_effect + wn]
   
+  # now make variable for how many observations per school 
+  r_dt[, n_obs := .N, school]
+  
+  # now get mean outcome by school 
+  r_dt <- r_dt[, list(outcome = mean(outcome)), c("time", "cohort", "rel_treat", "school", "treat", "n_obs")]
   
   # set parameters for debug 
   in_data = r_dt
-  in_id_var        = "stud"
+  in_id_var        = "school"
   in_outcome_var   = "outcome"
   in_time_var      = "time"
   in_cohort_var = "cohort"
-  in_group_var  = "school"
+  in_weight_var  = "n_obs"
   
   
   test_result <- AS_IW(in_data          = r_dt,
-                       in_id_var        =  "stud",
+                       in_id_var        =  "school",
                        in_outcome_var   = "outcome",
                        in_time_var      = "time",
                        in_cohort_var    = "cohort",
-                       in_group_var     = "school")
+                       in_weight_var     = "n_obs")
   

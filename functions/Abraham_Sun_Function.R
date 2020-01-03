@@ -69,7 +69,8 @@ ea_scan <- function (in_var_split = NULL, in_val_position = NULL, in_val_delim =
   #'@param in_cohort_var The variable name for a numeric variable in in_data indicating the amount of time since treatment. This needs to be in the same scale as the in_time var
   #'Negative indicates time period is before treatmet. Entered as a quoted character 
   #'@param omitted_relative_treatment pick the relative treatment time effect to exclude as a control. The default is to find one for you (most likely to be -1), but if you want to pick explicitly than enter that here 
-  #'@param in_group_var An optional variable indicating the treatment groups. This is for instances where treatment happens at group level but we want the regressions weighted by observation. 
+  #'@param in_weight_var An optional variable indicating the weight variable. This is for instances where treatment happens at group level, and data is collected ar the group level, but we want the regressions weighted by observation.
+  #' @param opt_weight_iw an option to use the in_weight_var for weighting the cohort estimates in the IW estimate. 
   #'@details See the working paper http://economics.mit.edu/files/14964
   #'@examples 
   
@@ -90,7 +91,8 @@ AS_IW <- function(in_data                    = NULL,
                   in_outcome_var             = NULL,
                   in_time_var                = NULL,
                   in_cohort_var              = NULL,
-                  in_group_var               = NULL,
+                  in_weight_var               = NULL,
+                  opt_weight_iw              = NULL,
                   omitted_relative_treatment = NULL){
   
   
@@ -98,8 +100,8 @@ AS_IW <- function(in_data                    = NULL,
   # ==== do checks ====
   #====================#
   
-    # see if user has included a group 
-    group_flag <- !is.null(in_group_var)
+    # see if user has included a weight variable 
+    weight_flag <- !is.null(in_weight_var)
     
 
     # check that in data is a data.table and exists 
@@ -109,7 +111,7 @@ AS_IW <- function(in_data                    = NULL,
     }
   
     # make list of variables we need 
-    in_cols <- c(in_id_var, in_outcome_var, in_time_var, in_cohort_var, in_group_var)
+    in_cols <- c(in_id_var, in_outcome_var, in_time_var, in_cohort_var, in_weight_var)
     
     # check that columns exist 
     for(col_i in in_cols){
@@ -141,8 +143,8 @@ AS_IW <- function(in_data                    = NULL,
     #note not totally sure about this. We could just work with the in_var names the entire time but it 
     # can get a bit clunky and it's probably easier to just change names and put them back at the end. 
     # I could also do everything by numeric reference but I am not a fan of that. Too easy for things to break silently 
-    if(group_flag){
-      setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort", "group") )
+    if(weight_flag){
+      setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort", "weight") )
     }else{
       setnames(w_dt, in_cols, c("ID", "outcome", "time", "cohort") )
     }
@@ -159,11 +161,6 @@ AS_IW <- function(in_data                    = NULL,
     n_control <- nrow(w_dt[is.na(cohort)])
     print(paste0(n_control, " control observations found"))
     
-    # if there is a group check the number of control groups 
-    if(group_flag){
-      n_cont_group <- length(w_dt[is.na(cohort), unique(group)])
-      print(paste0(n_cont_group, " control groups found"))
-    }
     
     # if there is no NA cohorts to use as control throw an error 
     if(n_control ==0 ){
@@ -290,9 +287,17 @@ AS_IW <- function(in_data                    = NULL,
     
       
       # run regression 
-      reg_res <- felm(form,
-                         data = w_dt,
-                      cmethod = "reghdfe")
+      if(weight_flag){
+        reg_res <- felm(form,
+                        data = w_dt,
+                        cmethod = "reghdfe",
+                        weights = w_dt$weight)
+      }else{
+        reg_res <- felm(form,
+                        data = w_dt,
+                        cmethod = "reghdfe")
+      }
+
   
       
       reg_tab <- data.table( term       = rownames(reg_res$coefficients),
@@ -307,8 +312,20 @@ AS_IW <- function(in_data                    = NULL,
     
     # Generate counts for each cohort
     #note, this works because it is a balanced panal. NOt sure if this works if it isnt, need to think about it 
-    c_list <- w_dt[, list(count = uniqueN(ID)), cohort]
-
+      
+    # if opt_weight_iw is set, get total weights for each cohort 
+    if(opt_weight_iw){
+      
+      # first get rid of diplicate ID's 
+      c_list <- w_dt[, unique(ID), c("cohort", "weight")]
+      
+      c_list <- c_list[, list(count = sum(weight)), cohort]
+      
+    # IF NOT just get counts 
+    }else{
+      
+      c_list <- w_dt[, list(count = uniqueN(ID)), cohort]
+    }
     
     # Now we need to do linear combinations of the different estimate and adjust the standard errors 
     #note I suppose let's do this with a loop 
