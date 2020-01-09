@@ -91,7 +91,7 @@ AS_IW <- function(in_data                    = NULL,
                   in_outcome_var             = NULL,
                   in_time_var                = NULL,
                   in_cohort_var              = NULL,
-                  in_weight_var               = NULL,
+                  in_weight_var              = NULL,
                   opt_weight_iw              = NULL,
                   omitted_relative_treatment = NULL){
   
@@ -300,7 +300,7 @@ AS_IW <- function(in_data                    = NULL,
 
   
       
-      reg_tab <- data.table( term       = rownames(reg_res$coefficients),
+      reg_tab <- data.table( term          = rownames(reg_res$coefficients),
                                 estimate   = as.numeric(reg_res$coefficients),
                                 robust_ste = reg_res$cse,
                                 t          = reg_res$ctval,

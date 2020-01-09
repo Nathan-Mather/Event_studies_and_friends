@@ -35,18 +35,18 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   hrs <- hrs[wave < 11]
 
   # set parameters for debug 
-  in_data = data.table(hrs)
+  in_data          = data.table(hrs)
   in_id_var        = "hhidpn"
   in_outcome_var   = "oop_spend"
   in_time_var      = "wave"
-  in_cohort_var = "wave_hosp"
+  in_cohort_var    = "wave_hosp"
   
   
   test_result <- AS_IW(in_data          = hrs,
                        in_id_var        = "hhidpn",
                        in_outcome_var   = "oop_spend",
                        in_time_var      = "wave",
-                       in_cohort_var = "wave_hosp")
+                       in_cohort_var    = "wave_hosp")
   
   
 #============================#
