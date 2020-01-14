@@ -92,7 +92,7 @@ AS_IW <- function(in_data                    = NULL,
                   in_time_var                = NULL,
                   in_cohort_var              = NULL,
                   in_weight_var              = NULL,
-                  opt_weight_iw              = NULL,
+                  opt_weight_iw              = FALSE,
                   omitted_relative_treatment = NULL){
   
   
@@ -128,7 +128,13 @@ AS_IW <- function(in_data                    = NULL,
     if(!class(in_data[[in_cohort_var]]) %chin% c("numeric", "integer"))stop(paste0(in_cohort_var, " is not numeric or integer"))
     if(!class(in_data[[in_time_var]])  %chin% c("numeric", "integer"))stop(paste0(in_time_var, " is not numeric or integer"))
     
-
+    # check if they set opt_weight_iw =TRUE but do not have a in_weight_var
+    if(opt_weight_iw & !weight_flag){
+      
+      stop("You specificed opt_weight_iw == TRUE without including an in_weight_var. The opt_weight_iw option 
+           weights the IW estimate by in_weight_var. So an in_weight_var must be included")
+    }
+    
     
   #==========================#
   # ==== and set up data ====
