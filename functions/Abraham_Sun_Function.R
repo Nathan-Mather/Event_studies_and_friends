@@ -66,7 +66,7 @@ ea_scan <- function (in_var_split = NULL, in_val_position = NULL, in_val_delim =
   #'@param in_id_var The Variable Name for an id variable identifying individuals in in_data. Entered as a quoted character 
   #'@param in_outcome_var The variable name for the outcome variable of interest. Entered as a quoted character 
   #'@param in_time_var The variable name for a numeric time variable in in_data. This is the period for a given row in the panel data. Entered as a quoted character 
-  #'@param in_cohort_var The variable name for a numeric variable in in_data indicating the amount of time since treatment. This needs to be in the same scale as the in_time var
+  #'@param in_cohort_var The variable name for a numeric variable in in_data indicating the time of treatment. This needs to be in the same scale as the in_time var
   #'Negative indicates time period is before treatmet. Entered as a quoted character 
   #'@param omitted_relative_treatment pick the relative treatment time effect to exclude as a control. The default is to find one for you (most likely to be -1), but if you want to pick explicitly than enter that here 
   #'@param in_weight_var An optional variable indicating the weight variable. This is for instances where treatment happens at group level, and data is collected ar the group level, but we want the regressions weighted by observation.
