@@ -34,12 +34,15 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   hrs[wave_hosp ==11, wave_hosp := NA]
   hrs <- hrs[wave < 11]
 
-  # set parameters for debug 
+  # set parameters for debug. You can define these and then go and run the Abraham_sun_function line by line with this example
   in_data          = data.table(hrs)
   in_id_var        = "hhidpn"
   in_outcome_var   = "oop_spend"
   in_time_var      = "wave"
   in_cohort_var    = "wave_hosp"
+  omitted_relative_treatment = NULL
+  in_weight_var  = NULL
+  opt_weight_iw    = FALSE
   
   
   test_result <- AS_IW(in_data          = hrs,
@@ -60,7 +63,7 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   
   n_schools <- 100 # number of schools 
   m_stud    <- 500  # mean students per school 
-  stud_sd   <- 100  # standard deviation of number of students per school 
+  stud_sd   <- 300  # standard deviation of number of students per school 
   n_treat <- 50
   
   
@@ -125,13 +128,19 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
   # now get mean outcome by school 
   r_dt <- r_dt[, list(outcome = mean(outcome)), c("time", "cohort", "rel_treat", "school", "treat", "n_obs")]
   
-  # set parameters for debug 
+#=============================#
+# ==== test on group data ====
+#=============================#
+
+  # set parameters for debug. You can define these and then go and run the Abraham_sun_function line by line with this example 
   in_data = r_dt
   in_id_var        = "school"
   in_outcome_var   = "outcome"
   in_time_var      = "time"
   in_cohort_var = "cohort"
   in_weight_var  = "n_obs"
+  opt_weight_iw    = TRUE
+  omitted_relative_treatment = NULL
   
   
   test_result <- AS_IW(in_data          = r_dt,
@@ -139,5 +148,24 @@ source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Ab
                        in_outcome_var   = "outcome",
                        in_time_var      = "time",
                        in_cohort_var    = "cohort",
-                       in_weight_var     = "n_obs")
+                       in_weight_var     = "n_obs",
+                       opt_weight_iw    = TRUE)
+  
+  
+  
+  test_result2 <- AS_IW(in_data          = r_dt,
+                       in_id_var        =  "school",
+                       in_outcome_var   = "outcome",
+                       in_time_var      = "time",
+                       in_cohort_var    = "cohort",
+                       in_weight_var     = "n_obs",
+                       opt_weight_iw    = FALSE)
+  
+  # test the error 
+  test_result3 <- AS_IW(in_data          = r_dt,
+                        in_id_var        =  "school",
+                        in_outcome_var   = "outcome",
+                        in_time_var      = "time",
+                        in_cohort_var    = "cohort",
+                        opt_weight_iw    = TRUE)
   
