@@ -15,6 +15,7 @@
 # ==== load function/packages ====
 #=================================#
 
+#set this to the location of the function 
 source("C:/Users/Nmath_000/Documents/Code/Event_studies_and_friends/functions/Abraham_Sun_Function.R")
 
 
